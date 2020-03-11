@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   sodipodi:docname="B.svg"
+   inkscape:version="1.0beta2 (2b71d25, 2019-12-03)"
+   id="svg4264"
+   version="1.1"
+   viewBox="0 0 210 297"
+   height="297mm"
+   width="210mm">
+  <defs
+     id="defs4258" />
+  <sodipodi:namedview
+     inkscape:document-rotation="0"
+     inkscape:window-maximized="1"
+     inkscape:window-y="23"
+     inkscape:window-x="0"
+     inkscape:window-height="1155"
+     inkscape:window-width="1920"
+     showgrid="false"
+     inkscape:current-layer="text3743"
+     inkscape:document-units="mm"
+     inkscape:cy="753.42666"
+     inkscape:cx="-11.031401"
+     inkscape:zoom="1.1283188"
+     inkscape:pageshadow="2"
+     inkscape:pageopacity="0.0"
+     borderopacity="1.0"
+     bordercolor="#666666"
+     pagecolor="#ffffff"
+     id="base" />
+  <metadata
+     id="metadata4261">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+        <dc:title></dc:title>
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <g
+     id="layer1"
+     inkscape:groupmode="layer"
+     inkscape:label="Ebene 1">
+    <g
+       id="text3743"
+       style="font-style:normal;font-weight:normal;font-size:22.8722px;line-height:1.25;font-family:sans-serif;-inkscape-font-specification:'Arial Narrow';letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.15129"
+       transform="matrix(3.2668429,0,0,4.2755011,-37.610382,-338.30826)"
+       aria-label="A">
+      <g
+         aria-label="B"
+         transform="matrix(1.0943568,0,0,0.91377888,-23.636293,-0.21166064)"
+         style="font-style:normal;font-weight:normal;font-size:25.0303px;line-height:1.25;font-family:sans-serif;-inkscape-font-specification:'Arial Narrow';letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.165565"
+         id="text3743-4">
+        <path
+           d="m 32.617793,144.2355 h 5.878697 q 2.407699,0 3.385445,0.43999 0.977746,0.43998 1.649947,1.55217 0.6722,1.11218 0.6722,2.51769 0,1.29552 -0.574426,2.34659 -0.574425,1.03886 -1.491062,1.53995 1.307735,0.46443 2.041044,1.58884 0.745532,1.12441 0.745532,2.73769 0,1.95549 -0.941081,3.31211 -0.94108,1.3444 -2.224372,1.66217 -0.892193,0.21999 -4.143198,0.21999 h -4.998726 z m 2.957681,2.98213 v 4.14319 h 1.955492 q 1.759943,0 2.175485,-0.0611 0.757753,-0.12221 1.185517,-0.63553 0.427763,-0.52554 0.427763,-1.41773 0,-0.79442 -0.354432,-1.28329 -0.342211,-0.5011 -0.843306,-0.62332 -0.488873,-0.12221 -2.835464,-0.12221 z m 0,7.12532 v 4.79095 h 2.749911 q 1.80883,0 2.322146,-0.18332 0.513317,-0.19555 0.855528,-0.74553 0.354433,-0.56221 0.354433,-1.41774 0,-0.87997 -0.378877,-1.44217 -0.366655,-0.57443 -0.989968,-0.7822 -0.611091,-0.21999 -2.517695,-0.21999 z"
+           style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:condensed;font-family:Arial;-inkscape-font-specification:'Arial Bold Condensed';stroke-width:0.165565"
+           id="path4457"
+           inkscape:connector-curvature="0" />
+      </g>
+    </g>
+  </g>
+</svg>
