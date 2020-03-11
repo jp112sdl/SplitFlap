@@ -25,8 +25,8 @@ typedef struct {
 
 FlapModuleBlockType FlapModuleBlock[FLAP_MODULE_BLOCKS];
 
-//                ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ÄÖÜ-ß!?.
-String letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789[](-)!?. ";
+//                                                     ÄÖÜ ß
+String letters = " ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789[](-)!?.";
 
 unsigned long lastmillis = 0;
 uint8_t       cnt = 0;
@@ -116,6 +116,8 @@ void processFlapRun() {
         FlapModuleBlock[i].steppers[j].disableOutputs();
         FlapModuleBlock[i].running[j] = false;
       }
+
+      if (FlapModuleBlock[i].running[j]) lastmillis = millis();
     }
   }
 }
@@ -133,7 +135,7 @@ void setup() {
 void loop() {
   processFlapRun();
 
-  if (millis() - lastmillis > 8000) {
+  if (millis() - lastmillis > 1000) {
     lastmillis = millis();
 
     if (cnt == 0) {
