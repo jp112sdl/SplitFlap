@@ -1,30 +1,30 @@
-#include <Wire.h>
-#include <Adafruit_MCP23017.h>
 #include <AccelStepper.h>
-#include <MCP3017AccelStepper.h>
 
-#define FLAP_MODULE_BLOCKS      2
-#define STEPPER_COUNT_PER_BLOCK 4
+#define BUSY_LED                LED_BUILTIN
+#define STEPPER_COUNT           8
 #define NUM_FLAPS               45
 #define STEPS_PER_ROUND         4096
 #define STEPS_PER_FLAP          (STEPS_PER_ROUND * 1.0 / NUM_FLAPS * 1.0)
+#define SPEED                   1000.0
+#define ACCELERATION            10000.0
 
-const uint8_t SENSOR_PINS[FLAP_MODULE_BLOCKS][STEPPER_COUNT_PER_BLOCK] = {{ A0, 3, 4, 5 }};//, { 6, 7, 8, 9 }};
-const uint8_t ZERO_OFFSET[FLAP_MODULE_BLOCKS][STEPPER_COUNT_PER_BLOCK] = {{ 90, 0, 0, 0 }};//, { 0, 0, 0, 0 }};
+const uint8_t SENSOR_PINS[STEPPER_COUNT] = { A0 , 0, 0, 0, 0, 0, 0, 0 };
+const uint8_t ZERO_OFFSET[STEPPER_COUNT] = { 100, 0, 0, 0, 0, 0, 0, 0 };
 
-typedef struct {
-  MCP3017AccelStepper steppers[STEPPER_COUNT_PER_BLOCK] = {
-    MCP3017AccelStepper(AccelStepper::HALF4WIRE,  0,  2,  1,  3),
-    MCP3017AccelStepper(AccelStepper::HALF4WIRE,  4,  6,  5,  7),
-    MCP3017AccelStepper(AccelStepper::HALF4WIRE,  8, 10,  9, 11),
-    MCP3017AccelStepper(AccelStepper::HALF4WIRE, 12, 14, 13, 15)
-  };
-  bool running[STEPPER_COUNT_PER_BLOCK] = {0, 0, 0, 0};
-  Adafruit_MCP23017 mcp;
-} FlapModuleBlockType;
+AccelStepper steppers[STEPPER_COUNT] = {
+  AccelStepper(AccelStepper::HALF4WIRE,  4,  6,  5,  7),
+  AccelStepper(AccelStepper::HALF4WIRE,  0,  0,  0,  0),
+  AccelStepper(AccelStepper::HALF4WIRE,  0,  0,  0,  0),
+  AccelStepper(AccelStepper::HALF4WIRE,  0,  0,  0,  0),
+  AccelStepper(AccelStepper::HALF4WIRE,  0,  0,  0,  0),
+  AccelStepper(AccelStepper::HALF4WIRE,  0,  0,  0,  0),
+  AccelStepper(AccelStepper::HALF4WIRE,  0,  0,  0,  0),
+  AccelStepper(AccelStepper::HALF4WIRE,  0,  0,  0,  0)
+};
 
-FlapModuleBlockType FlapModuleBlock[FLAP_MODULE_BLOCKS];
+bool running[STEPPER_COUNT] = {0, 0, 0, 0, 0, 0, 0, 0};
 
+String serialInput = "";
 //                                                     ÄÖÜ ß
 String letters = " ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789[](-)!?.";
 
@@ -33,49 +33,43 @@ uint8_t       cnt = 0;
 
 void initHW() {
   Serial.println("initHW()");
-
-  for (uint8_t i = 0; i < FLAP_MODULE_BLOCKS; i++) {
-    FlapModuleBlock[i].mcp.begin(0 + i);
-    for (uint8_t j = 0; j < STEPPER_COUNT_PER_BLOCK; j++) {
-      FlapModuleBlock[i].steppers[j].setMcp(FlapModuleBlock[i].mcp);
-      FlapModuleBlock[i].steppers[j].setMaxSpeed(1000);
-      FlapModuleBlock[i].steppers[j].setAcceleration(8000);
-      FlapModuleBlock[i].steppers[j].setSpeed(1000);
-      pinMode(SENSOR_PINS[i][j], INPUT_PULLUP);
-    }
+  for (uint8_t j = 0; j < STEPPER_COUNT; j++) {
+    steppers[j].setMaxSpeed(SPEED);
+    steppers[j].setAcceleration(ACCELERATION);
+    steppers[j].setSpeed(SPEED);
+    pinMode(SENSOR_PINS[j], INPUT_PULLUP);
   }
+  pinMode(BUSY_LED, OUTPUT);
 }
 
-void gotoZero(uint8_t blockNum, uint8_t moduleNum, bool disable) {
+void gotoZero(uint8_t moduleNum, bool disable) {
   TWBR = 2;  // 12 = 400 kHz; 2 = 800 kHz
 
-  Serial.print("gotoZero("); Serial.print(blockNum); Serial.print(","), Serial.print(moduleNum); Serial.print(","), Serial.print(disable); Serial.println(")");
-  FlapModuleBlock[blockNum].steppers[moduleNum].enableOutputs();
-  bool zeroPos = false;
+  Serial.print("gotoZero("); Serial.print(moduleNum); Serial.print(","), Serial.print(disable); Serial.println(")");
+  steppers[moduleNum].enableOutputs();
+  bool zeroPos =  (digitalRead(SENSOR_PINS[moduleNum]) == 0);
   while (!zeroPos) {
-    zeroPos = (digitalRead(SENSOR_PINS[blockNum][moduleNum]) == 0);
+    zeroPos = (digitalRead(SENSOR_PINS[moduleNum]) == 0);
     if (zeroPos) {
       Serial.println("Zero Pos");
-      FlapModuleBlock[blockNum].steppers[moduleNum].setCurrentPosition(0);
-      FlapModuleBlock[blockNum].steppers[moduleNum].runToNewPosition(ZERO_OFFSET[blockNum][moduleNum]);
+      steppers[moduleNum].setCurrentPosition(0);
+      steppers[moduleNum].runToNewPosition(ZERO_OFFSET[moduleNum]);
     }
-    FlapModuleBlock[blockNum].steppers[moduleNum].runSpeed();
+    steppers[moduleNum].runSpeed();
   }
-  FlapModuleBlock[blockNum].steppers[moduleNum].setCurrentPosition(0);
-  Serial.print("setCurrentPosition(0) : ("); Serial.print(blockNum); Serial.print(","), Serial.print(moduleNum); Serial.print(","), Serial.print(disable); Serial.println(")");
-  if (disable) FlapModuleBlock[blockNum].steppers[moduleNum].disableOutputs();
+  steppers[moduleNum].setCurrentPosition(0);
+  Serial.print("setCurrentPosition(0) : ("); Serial.print(moduleNum); Serial.print(","), Serial.print(disable); Serial.println(")");
+  if (disable) steppers[moduleNum].disableOutputs();
 }
 
 void gotoZeroAll() {
-  for (uint8_t i = 0; i < FLAP_MODULE_BLOCKS; i++) {
-    for (uint8_t j = 0; j < STEPPER_COUNT_PER_BLOCK; j++) {
-      gotoZero(i, j, false);
-    }
+  for (uint8_t j = 0; j < STEPPER_COUNT; j++) {
+    gotoZero(j, false);
   }
 }
 
-void gotoLetter(char printletter, uint8_t blockNum, uint8_t moduleNum) {
-  Serial.print("gotoLetter("); Serial.print(printletter); Serial.print(","); Serial.print(blockNum); Serial.print(","), Serial.print(moduleNum); Serial.println(")");
+void gotoLetter(char printletter, uint8_t moduleNum) {
+  Serial.print("gotoLetter("); Serial.print(printletter); Serial.print(","); Serial.print(moduleNum); Serial.println(")");
   TWBR = 2;  // 12 = 400 kHz; 2 = 800 kHz
 
   uint16_t stepsFromZero = 0;
@@ -87,39 +81,42 @@ void gotoLetter(char printletter, uint8_t blockNum, uint8_t moduleNum) {
     stepsFromZero += STEPS_PER_FLAP;
   }
 
-  Serial.print("gotoLetter : stepsFromZero = "); Serial.println(stepsFromZero, DEC);
+  uint16_t currentPosition = steppers[moduleNum].currentPosition();
 
-  uint16_t currentPosition = FlapModuleBlock[blockNum].steppers[moduleNum].currentPosition();
+  uint16_t steps = (stepsFromZero > currentPosition) ? stepsFromZero - currentPosition : (STEPS_PER_ROUND - currentPosition) + stepsFromZero;
 
-  uint16_t  steps = (stepsFromZero > currentPosition) ? stepsFromZero - currentPosition : (STEPS_PER_ROUND - currentPosition) + stepsFromZero;
+  //Serial.print("gotoLetter : currentPosition = "); Serial.println(currentPosition, DEC);
+  //Serial.print("gotoLetter :   stepsFromZero = "); Serial.println(stepsFromZero, DEC);
+  //Serial.print("gotoLetter :           steps = "); Serial.println(steps, DEC);
 
-  FlapModuleBlock[blockNum].steppers[moduleNum].move(steps);
+  if (steps != STEPS_PER_ROUND) steppers[moduleNum].move(steps);
 }
 
-void processFlapRun() {
-  for (uint8_t i = 0; i < FLAP_MODULE_BLOCKS; i++) {
-    for (uint8_t j = 0; j < STEPPER_COUNT_PER_BLOCK; j++) {
-
-      if (FlapModuleBlock[i].steppers[j].distanceToGo() != 0 && !FlapModuleBlock[i].running[j]) {
-        Serial.print("Enable  Steppers ("); Serial.print(i, DEC); Serial.print(","); Serial.print(j, DEC); Serial.println(")");
-        FlapModuleBlock[i].steppers[j].enableOutputs();
-        FlapModuleBlock[i].running[j] = true;
-      }
-
-      FlapModuleBlock[i].steppers[j].run();
-
-      if (FlapModuleBlock[i].steppers[j].distanceToGo() == 0 && FlapModuleBlock[i].running[j]) {
-        Serial.print("Disable Steppers ("); Serial.print(i, DEC); Serial.print(","); Serial.print(j, DEC); Serial.println(")");
-        if (FlapModuleBlock[i].steppers[j].currentPosition() > STEPS_PER_ROUND) {
-          FlapModuleBlock[i].steppers[j].setCurrentPosition(FlapModuleBlock[i].steppers[j].currentPosition() - STEPS_PER_ROUND);
-        }
-        FlapModuleBlock[i].steppers[j].disableOutputs();
-        FlapModuleBlock[i].running[j] = false;
-      }
-
-      if (FlapModuleBlock[i].running[j]) lastmillis = millis();
+bool processFlapRun() {
+  bool isBusy = false;
+  for (uint8_t j = 0; j < STEPPER_COUNT; j++) {
+    if (steppers[j].distanceToGo() != 0 && !running[j]) {
+      Serial.print("Enable  Steppers ("); Serial.print(j, DEC); Serial.println(")");
+      steppers[j].enableOutputs();
+      running[j] = true;
     }
+
+    steppers[j].run();
+
+    if (steppers[j].distanceToGo() == 0 && running[j]) {
+      Serial.print("Disable Steppers ("); Serial.print(j, DEC); Serial.println(")");
+      if (steppers[j].currentPosition() > STEPS_PER_ROUND) {
+        steppers[j].setCurrentPosition(steppers[j].currentPosition() - STEPS_PER_ROUND);
+      }
+      steppers[j].disableOutputs();
+      running[j] = false;
+    }
+
+    if (running[j]) lastmillis = millis();
+    if (running[j]) isBusy = true;
   }
+  digitalWrite(BUSY_LED, isBusy);
+  return isBusy;
 }
 
 void setup() {
@@ -127,57 +124,32 @@ void setup() {
 
   initHW();
 
-  gotoZero(0, 0, false);
+  gotoZero(0, true);
   //gotoZeroAll();
 
 }
 
 void loop() {
-  processFlapRun();
+  bool busy = processFlapRun();
 
-  if (millis() - lastmillis > 1000) {
-    lastmillis = millis();
+  bool newChar = false;
+  if (!busy && Serial.available() > 0) {
+    char in = Serial.read();
+    serialInput += in;
 
-    if (cnt == 0) {
-      Serial.println("Goto J");
-      Serial.print("currentPosition: "); Serial.print(FlapModuleBlock[0].steppers[0].currentPosition(), DEC); Serial.println("");
-      gotoLetter('J', 0, 0);
+    if (in == '\n') {
+      newChar = true;
     }
-
-    if (cnt == 1) {
-      Serial.println("Goto E");
-      Serial.print("currentPosition: "); Serial.print(FlapModuleBlock[0].steppers[0].currentPosition(), DEC); Serial.println("");
-      gotoLetter('E', 0, 0);
-    }
-
-    if (cnt == 2) {
-      Serial.println("Goto R");
-      Serial.print("currentPosition: "); Serial.print(FlapModuleBlock[0].steppers[0].currentPosition(), DEC); Serial.println("");
-      gotoLetter('R', 0, 0);
-    }
-
-    if (cnt == 3) {
-      Serial.println("Goto O");
-      Serial.print("currentPosition: "); Serial.print(FlapModuleBlock[0].steppers[0].currentPosition(), DEC); Serial.println("");
-      gotoLetter('O', 0, 0);
-    }
-
-    if (cnt == 4) {
-      Serial.println("Goto M");
-      Serial.print("currentPosition: "); Serial.print(FlapModuleBlock[0].steppers[0].currentPosition(), DEC); Serial.println("");
-      gotoLetter('M', 0, 0);
-    }
-
-    if (cnt == 5) {
-      Serial.println("Goto E");
-      Serial.print("currentPosition: "); Serial.print(FlapModuleBlock[0].steppers[0].currentPosition(), DEC); Serial.println("");
-      gotoLetter('E', 0, 0);
-    }
-
-    cnt++;
-    if (cnt == 7) cnt = 0;
   }
 
-
-
+  if (newChar) {
+    newChar = false;
+    if (serialInput.length() == (STEPPER_COUNT + 1)) {
+      for (uint8_t i = 0; i < STEPPER_COUNT; i++){
+        char letter = serialInput[i];
+        gotoLetter(letter, i);
+      }
+    }
+    serialInput = "";
+  }
 }
