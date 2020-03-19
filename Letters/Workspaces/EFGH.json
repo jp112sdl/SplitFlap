@@ -15,8 +15,7 @@
       "fillColor": null,
       "dataURL": "",
       "originalPixels": null,
-      "originalSize": null,
-      "expanded": true
+      "originalSize": null
     },
     {
       "id": "5f73b022-675c-4fb5-976b-02c12796a2c7",
@@ -38,8 +37,7 @@
       "fillColor": null,
       "dataURL": "",
       "originalPixels": null,
-      "originalSize": null,
-      "expanded": true
+      "originalSize": null
     },
     {
       "id": "88584971-c220-4ff7-b452-4c1c295f70ee",
@@ -2366,7 +2364,7 @@
       "filterFillColor": null,
       "filterStrokeColor": null,
       "direction": "Conventional",
-      "laserPower": 50,
+      "laserPower": 70,
       "laserPowerRange": {"min": 0, "max": 100},
       "laserDiameter": 0.2,
       "toolDiameter": 0,
@@ -2385,7 +2383,7 @@
       "segmentLength": 0,
       "tabDepth": 0,
       "plungeRate": 0,
-      "cutRate": 550,
+      "cutRate": 900,
       "overScan": 0,
       "toolAngle": 0,
       "ramp": false,
