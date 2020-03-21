@@ -1,6 +1,3 @@
-// Magnet rote Seite gegen A3144 schmale Seite
-
-
 #include <AccelStepper.h>
 
 #define BUSY_LED                A5
@@ -11,7 +8,7 @@
 #define SPEED                   1000.0
 #define ACCELERATION            10000.0
 
-const uint8_t SENSOR_PINS[STEPPER_COUNT] = {  A0 ,  A2  ,  A4 ,  A6 ,  A8  , A10 , A12 , A14 ,  A1  , A3 };
+const uint8_t SENSOR_PINS[STEPPER_COUNT] = {  A0 ,  A2  ,  A4 ,  A6 ,  A8  , A10 , A12 , A14 , A1  , A3 };
 const uint8_t ZERO_OFFSET[STEPPER_COUNT] = { 110 ,  100 ,  110 , 170 , 190 , 100 , 120 , 180 , 165 , 95 };
 
 AccelStepper steppers[STEPPER_COUNT] = {
@@ -139,11 +136,11 @@ bool processFlapRun() {
 
 void setup() {
   Serial.begin(57600);
-  Serial3.begin(57600);
+  Serial2.begin(57600);
 
   initHW();
 
-  gotoZeroAll();
+ // gotoZeroAll();
 }
 
 void loop() {
@@ -152,9 +149,9 @@ void loop() {
   setBusyLED(busy);
 
   bool newChar = false;
-  if (!busy && (Serial.available() > 0 || Serial1.available() > 0)) {
+  if (!busy && (Serial.available() > 0 || Serial2.available() > 0)) {
 
-    char in = (Serial.available() > 0) ? Serial.read() : Serial3.read();
+    char in = (Serial.available() > 0) ? Serial.read() : Serial2.read();
 
     serialInput += in;
 
@@ -168,7 +165,11 @@ void loop() {
 
     if (serialInput.length() == 3) {
       if (serialInput[0] == 'z') {
-        gotoZero(serialInput[1] - 48);
+        if (serialInput[1] == 'a') {
+          gotoZeroAll();
+        } else {
+          gotoZero(serialInput[1] - 48);
+        }
       }
     }
 
