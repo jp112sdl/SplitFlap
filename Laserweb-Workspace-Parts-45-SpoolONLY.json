@@ -37395,7 +37395,7 @@
       "segmentLength": 0,
       "tabDepth": 0,
       "plungeRate": 0,
-      "cutRate": 100,
+      "cutRate": 180,
       "overScan": 0,
       "toolAngle": 0,
       "ramp": false,
