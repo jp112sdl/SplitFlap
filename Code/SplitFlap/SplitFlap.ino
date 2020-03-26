@@ -1,15 +1,15 @@
 #include <AccelStepper.h>
 
-#define BUSY_LED                A5
-#define STEPPER_COUNT           10
+#define BUSY_LED                A9
+#define STEPPER_COUNT           12
 #define NUM_FLAPS               45
 #define STEPS_PER_ROUND         4096
 #define STEPS_PER_FLAP          (STEPS_PER_ROUND * 1.0 / NUM_FLAPS * 1.0)
-#define SPEED                   1000.0
 #define ACCELERATION            10000.0
+float   SPEED              =    600.0;
 
-const uint8_t SENSOR_PINS[STEPPER_COUNT] = {  A0 ,  A2  ,  A4 ,  A6 ,  A8  , A10 , A12 , A14 , A1  , A3 };
-const uint8_t ZERO_OFFSET[STEPPER_COUNT] = { 110 ,  100 ,  110 , 170 , 190 , 100 , 120 , 180 , 165 , 95 };
+const uint8_t SENSOR_PINS[STEPPER_COUNT] = {  A0 ,  A2  ,  A4 ,  A6 ,  A8  , A10 , A12 , A14 , A1  , A3 ,  A5,  A7 };
+const uint8_t ZERO_OFFSET[STEPPER_COUNT] = { 110 ,  100 ,  115 , 170 , 190 , 110 , 120 , 190 , 165 , 95 , 130, 100 };
 
 AccelStepper steppers[STEPPER_COUNT] = {
   AccelStepper(AccelStepper::HALF4WIRE,   4,  3,  2,  5),
@@ -21,10 +21,12 @@ AccelStepper steppers[STEPPER_COUNT] = {
   AccelStepper(AccelStepper::HALF4WIRE,  42, 41, 40, 43), 
   AccelStepper(AccelStepper::HALF4WIRE,  46, 45, 44, 47),
   AccelStepper(AccelStepper::HALF4WIRE,  38, 37, 36, 39),
-  AccelStepper(AccelStepper::HALF4WIRE,  34, 33, 32, 35)
+  AccelStepper(AccelStepper::HALF4WIRE,  34, 33, 32, 35),
+  AccelStepper(AccelStepper::HALF4WIRE,  14, 52, 15, 53),
+  AccelStepper(AccelStepper::HALF4WIRE,  50, 49, 48, 51)
 };
 
-bool running[STEPPER_COUNT] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+bool running[STEPPER_COUNT] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
 String serialInput = "";
 //                                                     ÄÖÜ ß
@@ -50,7 +52,6 @@ void setBusyLED(bool s) {
 
 void gotoZero(uint8_t moduleNum) {
   setBusyLED(true);
-  TWBR = 2;  // 12 = 400 kHz; 2 = 800 kHz
 
   Serial.print("gotoZero("); Serial.print(moduleNum);Serial.print(")");
   steppers[moduleNum].enableOutputs();
@@ -86,7 +87,6 @@ void gotoZeroAll() {
 
 void gotoLetter(char printletter, uint8_t moduleNum) {
   Serial.print("gotoLetter("); Serial.print(printletter); Serial.print(","); Serial.print(moduleNum); Serial.println(")");
-  TWBR = 2;  // 12 = 400 kHz; 2 = 800 kHz
 
   uint16_t stepsFromZero = 0;
 
@@ -100,10 +100,6 @@ void gotoLetter(char printletter, uint8_t moduleNum) {
   uint16_t currentPosition = steppers[moduleNum].currentPosition();
 
   uint16_t steps = (stepsFromZero > currentPosition) ? stepsFromZero - currentPosition : (STEPS_PER_ROUND - currentPosition) + stepsFromZero;
-
-  //Serial.print("gotoLetter : currentPosition = "); Serial.println(currentPosition, DEC);
-  //Serial.print("gotoLetter :   stepsFromZero = "); Serial.println(stepsFromZero, DEC);
-  //Serial.print("gotoLetter :           steps = "); Serial.println(steps, DEC);
 
   if (steps != STEPS_PER_ROUND) steppers[moduleNum].move(steps);
 }
@@ -137,10 +133,7 @@ bool processFlapRun() {
 void setup() {
   Serial.begin(57600);
   Serial2.begin(57600);
-
   initHW();
-
- // gotoZeroAll();
 }
 
 void loop() {
@@ -150,26 +143,31 @@ void loop() {
 
   bool newChar = false;
   if (!busy && (Serial.available() > 0 || Serial2.available() > 0)) {
-
     char in = (Serial.available() > 0) ? Serial.read() : Serial2.read();
-
-    serialInput += in;
-
     if (in == '\n') {
       newChar = true;
+    } else {
+      serialInput += in;
     }
   }
 
   if (newChar) {
     newChar = false;
 
-    if (serialInput.length() == 3) {
-      if (serialInput[0] == 'z') {
-        if (serialInput[1] == 'a') {
+    if (serialInput[0] == '%') {
+      switch (serialInput[1]) {
+      case 'z':
+        if (serialInput[2] == 'a') {
           gotoZeroAll();
         } else {
-          gotoZero(serialInput[1] - 48);
+          int modnum = atoi(serialInput.substring(2).c_str());
+          gotoZero(modnum);
         }
+        break;
+      case 's':
+        SPEED = atoi(serialInput.substring(2).c_str()) * 1.0;
+        Serial.print("Setting SPEED to ");Serial.println(SPEED, DEC);
+        break;
       }
     }
 
