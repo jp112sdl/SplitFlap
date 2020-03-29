@@ -6,7 +6,7 @@
 #define STEPS_PER_ROUND         4096
 #define STEPS_PER_FLAP          (STEPS_PER_ROUND * 1.0 / NUM_FLAPS * 1.0)
 #define ACCELERATION            10000.0
-float   SPEED              =    600.0;
+float   SPEED              =    1000.0;
 
 const uint8_t SENSOR_PINS[STEPPER_COUNT] = {  A0 ,  A2  ,  A4 ,  A6 ,  A8  , A10 , A12 , A14 , A1  , A3 ,  A5,  A7 };
 const uint8_t ZERO_OFFSET[STEPPER_COUNT] = { 110 ,  100 ,  115 , 170 , 190 , 110 , 120 , 190 , 165 , 95 , 130, 100 };
@@ -22,7 +22,7 @@ AccelStepper steppers[STEPPER_COUNT] = {
   AccelStepper(AccelStepper::HALF4WIRE,  46, 45, 44, 47),
   AccelStepper(AccelStepper::HALF4WIRE,  38, 37, 36, 39),
   AccelStepper(AccelStepper::HALF4WIRE,  34, 33, 32, 35),
-  AccelStepper(AccelStepper::HALF4WIRE,  14, 52, 15, 53),
+  AccelStepper(AccelStepper::HALF4WIRE,  30, 52, 31, 53),
   AccelStepper(AccelStepper::HALF4WIRE,  50, 49, 48, 51)
 };
 
@@ -62,10 +62,13 @@ void gotoZero(uint8_t moduleNum) {
     steppers[moduleNum].runSpeed();
   }
   unsigned long zeroPosStartMillis = millis();
-  while (!zeroPos && millis() - zeroPosStartMillis < 8000) {
+  uint16_t timeout = (1000 / SPEED) * 4500;
+  Serial.print(" timeout=");Serial.print(timeout,DEC);
+  while (!zeroPos && millis() - zeroPosStartMillis < timeout) {
     zeroPos = (digitalRead(SENSOR_PINS[moduleNum]) == 0);
     if (zeroPos) {
-      Serial.println("  Zero Pos detected");
+      unsigned long zduration = millis()-zeroPosStartMillis;
+      Serial.print("  Zero Pos detected (");Serial.print(zduration, DEC);Serial.println(")");
       steppers[moduleNum].setCurrentPosition(0);
       steppers[moduleNum].runToNewPosition(ZERO_OFFSET[moduleNum]);
     }
@@ -108,7 +111,7 @@ bool processFlapRun() {
     bool isBusy = false;
     for (uint8_t j = 0; j < STEPPER_COUNT; j++) {
       if (steppers[j].distanceToGo() != 0 && !running[j]) {
-        Serial.print("Enable  Steppers ("); Serial.print(j, DEC); Serial.println(")");
+        //Serial.print("Enable  Steppers ("); Serial.print(j, DEC); Serial.println(")");
         steppers[j].enableOutputs();
         running[j] = true;
       }
@@ -116,7 +119,7 @@ bool processFlapRun() {
       steppers[j].run();
 
       if (steppers[j].distanceToGo() == 0 && running[j]) {
-        Serial.print("Disable Steppers ("); Serial.print(j, DEC); Serial.println(")");
+        //Serial.print("Disable Steppers ("); Serial.print(j, DEC); Serial.println(")");
         if (steppers[j].currentPosition() > STEPS_PER_ROUND) {
           steppers[j].setCurrentPosition(steppers[j].currentPosition() - STEPS_PER_ROUND);
         }
@@ -165,13 +168,16 @@ void loop() {
         }
         break;
       case 's':
-        SPEED = atoi(serialInput.substring(2).c_str()) * 1.0;
+        uint16_t s = constrain(atoi(serialInput.substring(2).c_str()), 100, 1000);
+        SPEED = s * 1.0;
+        initHW();
         Serial.print("Setting SPEED to ");Serial.println(SPEED, DEC);
         break;
       }
+
     }
 
-    if (serialInput.length() == (STEPPER_COUNT + 1)) {
+    if (serialInput.length() == (STEPPER_COUNT)) {
       serialInput.toUpperCase();
       for (uint8_t i = 0; i < STEPPER_COUNT; i++) {
         char letter = serialInput[i];
