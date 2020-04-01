@@ -3,10 +3,10 @@
 #include <SoftwareSerial.h>
 #include "secrets.h"
 
-#define BUSY_PIN      D6
+#define BUSY_PIN      D5
 
 ESP8266WebServer server(80);
-SoftwareSerial splitflapSerial(D8, D7);
+SoftwareSerial splitflapSerial(D7, D6);
 
 String lasttext = "";
 
@@ -24,6 +24,7 @@ const char MAIN_page[] PROGMEM = R"=====(
   <head>
     <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <meta name="apple-mobile-web-app-capable" content="yes">
     <title>SplitFlap</title>
     <style>
       body{
