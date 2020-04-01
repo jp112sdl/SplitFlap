@@ -9,6 +9,7 @@ ESP8266WebServer server(80);
 SoftwareSerial splitflapSerial(D7, D6);
 
 String lasttext = "";
+String serialInput = "";
 
 struct {
    String msg;
@@ -46,7 +47,7 @@ const char MAIN_page[] PROGMEM = R"=====(
       } 
       
       .listbtn {
-        width:76px;
+        width:114px;
         padding: 5px 10px;
         margin-bottom: 5px;
       }
@@ -61,15 +62,6 @@ const char MAIN_page[] PROGMEM = R"=====(
         display:flex;
         align-items:center;
         justify-content: center;
-       }
-       
-       #textliste {
-         width:240px;
-         height: 285px;
-         font-size:1.4rem; 
-         padding: 5px 10px;
-         background-color: #606060;
-         color: white;
        }
   
       .flap-state {
@@ -134,18 +126,21 @@ const char MAIN_page[] PROGMEM = R"=====(
       </form>
       
       <form action="/" method="post" id="frm">
-        <div><input id="textfield" type="text" maxlength=12 onfocus="this.value=''" name="text" value=""></div>
+        <div><input id="textfield" type="text" maxlength=12 onfocus="this.value=''" name="text" value="" placeholder="Single Word"></div>
         <div><button type="submit">Send</button></div>   
       </form>
       
       <form>
         <div>
-          <button class="listbtn" type="button" onclick="addToSelect()">Add</button>
-          <button class="listbtn" type="button" onclick="clearSelect()">Clear</button>
-          <button class="listbtn" type="button" onclick="goSelect()">GO</button>
+          <button class="listbtn" type="button" onclick="ClearBtn()">Clear</button>
+          <button class="listbtn" type="button" onclick="GoBtn();">GO</button>
         </div>
-        <div><select id="textliste" size="10" multiple ondblclick="onDblClickFunction();">
-        </select></div>
+        <div><input id="textline1" type="text" maxlength=12 onfocus="this.value=''" name="text" value="{w1}" placeholder="{w1}"></div>
+        <div><input id="textline2" type="text" maxlength=12 onfocus="this.value=''" name="text" value="{w2}" placeholder="{w2}"></div>
+        <div><input id="textline3" type="text" maxlength=12 onfocus="this.value=''" name="text" value="{w3}" placeholder="{w3}"></div>
+        <div><input id="textline4" type="text" maxlength=12 onfocus="this.value=''" name="text" value="{w4}" placeholder="{w4}"></div>
+        <div><input id="textline5" type="text" maxlength=12 onfocus="this.value=''" name="text" value="{w5}" placeholder="{w5}"></div>
+        <div><input id="textline6" type="text" maxlength=12 onfocus="this.value=''" name="text" value="{w6}" placeholder="{w6}"></div>
 
       </form>
 
@@ -154,24 +149,21 @@ const char MAIN_page[] PROGMEM = R"=====(
 </div>
 
     <script>   
-       function clearSelect() {
-          var oSelField = document.getElementById("textliste");
-          oSelField.options.length=0;
+       function ClearBtn() {
+         for (var i = 1; i < 7; i++) { 
+           var l  = document.getElementById("textline"+i);
+           l.value="";
+          }
        }
        
-       function onDblClickFunction() {
-          document.getElementById('textliste').ondblclick = function(){
-          this.remove(this.selectedIndex);
-         };
-       }
-       
-       function goSelect() { 
-         selectBox = document.getElementById("textliste");
-         
+       function GoBtn() { 
          var sftext='';
 
-         for (var i = 0; i < selectBox.options.length; i++) { 
-           sftext+=selectBox.options[i].value+';';
+         for (var i = 1; i < 7; i++) { 
+           var l  = document.getElementById("textline"+i).value;
+           if (l.length > 0) {
+             sftext+=l+';';
+           }
          } 
          
          console.log(sftext);
@@ -198,16 +190,6 @@ const char MAIN_page[] PROGMEM = R"=====(
           form.submit();
        }
 
-
-       function addToSelect() {
-       var textField = document.getElementById("textfield");
-       var oSelField = document.getElementById("textliste");
-       var oOption = document.createElement("OPTION");
-       oSelField.options.add(oOption);
-       oOption.text = textField.value;
-       oOption.value = (textField.value==='') ? '          ' : textField.value;
-       textField.value='';
-       }
 
       (function() {
         var state = document.getElementById("state");
@@ -312,6 +294,8 @@ void addTextToSplitFlapMessageBuffer(String text) {
 }
 
 void handleRoot() {
+  String s = FPSTR(MAIN_page); //Read HTML contents
+
   if (server.hasArg("reset")) {
     int modnum = atoi(server.arg("reset").c_str());
     if (modnum == 0) splitflapSerial.print("%za\n");
@@ -322,6 +306,7 @@ void handleRoot() {
     }
   }
 
+  uint8_t tlcnt = 0;
   if (server.hasArg("textlist")) {
     String textlist = server.arg("textlist");
     // Convert from String Object to String.
@@ -329,18 +314,22 @@ void handleRoot() {
     textlist.toCharArray(buf, sizeof(buf));
     char *p = buf;
     char *str;
-    while ((str = strtok_r(p, ";", &p)) != NULL) // delimiter is the semicolon
+    while ((str = strtok_r(p, ";", &p)) != NULL) { // delimiter is the semicolon
       addTextToSplitFlapMessageBuffer(str);
+      s.replace("{w"+String(++tlcnt)+"}", str);
+    }
   }
 
+  for (uint8_t i = tlcnt; i < 7; i++) {
+    s.replace("{w"+String(i)+"}", "");
+  }
 
   if (server.hasArg("text")) {
     String text = server.arg("text");
     addTextToSplitFlapMessageBuffer(text);
   }
 
-  String s = FPSTR(MAIN_page); //Read HTML contents
-  s.replace("{lasttext}", lasttext);
+  //s.replace("{sw}", lasttext);
   server.send(200, "text/html", s); //Send web page
 }
 
@@ -361,6 +350,22 @@ void setup() {
 void loop() {
   server.handleClient();
   digitalWrite(LED_BUILTIN, !getBusyState());
+
+  bool newChar = false;
+  if (splitflapSerial.available()) {
+    char in = splitflapSerial.read();
+    if (in == '\n') {
+       newChar = true;
+     } else {
+       serialInput += in;
+     }
+  }
+
+  if (newChar) {
+    newChar = false;
+    Serial.print("IN splitflapSerial: ");Serial.println(serialInput);
+    serialInput = "";
+  }
 
   if (getBusyState() == true) stopMillis = millis();
 
