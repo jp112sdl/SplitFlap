@@ -16,5 +16,6 @@ Modifications:
 ### construction site pictures ^^ 
 <img src="Images/IMG_0935.jpeg" width=400 />
 <img src="Images/IMG_0936.jpeg" width=400 />
+<img src="Images/IMG_1026.jpeg" width=400 />
 <img src="Images/IMG_1027.jpeg" width=400 />
 <img src="Images/IMG_1023.jpeg" width=400 />
