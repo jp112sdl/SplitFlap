@@ -1,15 +1,18 @@
 #include <AccelStepper.h>
+#include "avr/eeprom.h"
 
-#define BUSY_LED                A9
-#define STEPPER_COUNT           12
-#define NUM_FLAPS               45
-#define STEPS_PER_ROUND         4096
-#define STEPS_PER_FLAP          (STEPS_PER_ROUND * 1.0 / NUM_FLAPS * 1.0)
-#define ACCELERATION            10000.0
-float   SPEED              =    1000.0;
+#define BUSY_LED                 A9
+#define STEPPER_COUNT            12
+#define NUM_FLAPS                45
+#define STEPS_PER_ROUND          4096
+#define STEPS_PER_FLAP           (STEPS_PER_ROUND * 1.0 / NUM_FLAPS * 1.0)
+#define ACCELERATION             10000.0
+float   SPEED              =     1000.0;
+
+#define EEPROM_ZERO_OFFSET_START 128
 
 const uint8_t SENSOR_PINS[STEPPER_COUNT] = {  A0 ,  A2  ,  A4 ,  A6 ,  A8  , A10 , A12 , A14 , A1  , A3 ,  A5,  A7 };
-const uint8_t ZERO_OFFSET[STEPPER_COUNT] = { 110 ,  100 ,  115 , 170 , 190 , 110 , 120 , 190 , 165 , 95 , 130,  80 };
+const uint8_t ZERO_OFFSET_DEFAULTS[STEPPER_COUNT] = { 110 ,  100 ,  115 , 170 , 190 , 110 , 120 , 190 , 165 , 95 , 130,  80 };
 
 AccelStepper steppers[STEPPER_COUNT] = {
   AccelStepper(AccelStepper::HALF4WIRE,   4,  3,  2,  5),
@@ -27,6 +30,7 @@ AccelStepper steppers[STEPPER_COUNT] = {
 };
 
 bool running[STEPPER_COUNT] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+uint8_t ZERO_OFFSET[STEPPER_COUNT];
 
 String serialInput = "";
 //                                                     ÄÖÜ ß
@@ -37,6 +41,20 @@ uint8_t       cnt = 0;
 
 void initHW() {
   Serial.println("initHW()");
+  if (eeprom_read_byte(0) != 0xaa) {
+    Serial.print(F("EEPROM Byte 0 != 0xAA => writing ZERO_OFFSET_DEFAULTS to EEPROM... "));
+    eeprom_write_byte(0, 0xaa);
+    eeprom_write_block((const void*)&ZERO_OFFSET_DEFAULTS, (void*)EEPROM_ZERO_OFFSET_START, STEPPER_COUNT);
+    Serial.println(" done");
+  }
+  eeprom_read_block((void*)&ZERO_OFFSET, (void*)EEPROM_ZERO_OFFSET_START, STEPPER_COUNT);
+  Serial.print(F("Zero Offsets: { "));
+  for (uint8_t i = 0; i < STEPPER_COUNT; i++) {
+    Serial.print(ZERO_OFFSET[i], DEC);
+    if (i < STEPPER_COUNT-1) Serial.print(", ");
+  }
+  Serial.println(" }");
+
   for (uint8_t j = 0; j < STEPPER_COUNT; j++) {
     steppers[j].setMaxSpeed(SPEED);
     steppers[j].setAcceleration(ACCELERATION);
@@ -74,11 +92,20 @@ void gotoZero(uint8_t moduleNum) {
     }
     steppers[moduleNum].runSpeed();
   }
-  if (!zeroPos) Serial.println(" TIMEOUT!");
+  if (!zeroPos) {
+    Serial.println(" TIMEOUT!");
+    Serial2.print("T");Serial2.print(moduleNum, DEC);Serial2.print("\n");
+  }
   steppers[moduleNum].setCurrentPosition(0);
   //Serial.print("setCurrentPosition(0) : ("); Serial.print(moduleNum); Serial.print(","), Serial.print(disable); Serial.println(")");
   steppers[moduleNum].disableOutputs();
   setBusyLED(false);
+}
+
+void setZeroPosOffset(uint8_t moduleNum, uint16_t val) {
+  ZERO_OFFSET[moduleNum] = val;
+  eeprom_write_block((const void*)&ZERO_OFFSET, (void*)EEPROM_ZERO_OFFSET_START, STEPPER_COUNT);
+  Serial.print("New ZERO POS for Module ");Serial.print(moduleNum, DEC);Serial.print(" set to "); Serial.print(val, DEC); Serial.println(" and written to EEPROM");
 }
 
 void gotoZeroAll() {
@@ -159,22 +186,50 @@ void loop() {
 
     if (serialInput[0] == '%') {
       switch (serialInput[1]) {
-      case 'z':
+
+      case 'z': {
         if (serialInput[2] == 'a') {
           gotoZeroAll();
         } else {
           int modnum = atoi(serialInput.substring(2).c_str());
           gotoZero(modnum);
         }
+      }
         break;
-      case 's':
+
+      case 'o': {
+        int modnum = atoi(serialInput.substring(2,2).c_str());
+        uint16_t val = constrain(atoi(serialInput.substring(2).c_str()), 0, 4096);
+        setZeroPosOffset(modnum, val);
+        gotoZero(modnum);
+      }
+        break;
+
+      case 's': {
         uint16_t s = constrain(atoi(serialInput.substring(2).c_str()), 100, 1000);
         SPEED = s * 1.0;
         initHW();
         Serial.print("Setting SPEED to ");Serial.println(SPEED, DEC);
-        break;
       }
+        break;
 
+
+      case 'g': {
+        String s = "{\"SPEED\":";
+        s += String((uint16_t)SPEED, DEC);
+        s += ",\"ZERO_OFFSET\": [";
+        for (uint8_t i = 0; i < STEPPER_COUNT; i++) {
+          s+= String(ZERO_OFFSET[i], DEC);
+          if (i < STEPPER_COUNT-1) s+=(", ");
+        }
+        s+="]}\n";
+
+        Serial.print(s);
+        Serial2.print(s);
+      }
+        break;
+
+      }
     }
 
     if (serialInput.length() == (STEPPER_COUNT)) {
