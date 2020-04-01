@@ -9,7 +9,7 @@
 float   SPEED              =    1000.0;
 
 const uint8_t SENSOR_PINS[STEPPER_COUNT] = {  A0 ,  A2  ,  A4 ,  A6 ,  A8  , A10 , A12 , A14 , A1  , A3 ,  A5,  A7 };
-const uint8_t ZERO_OFFSET[STEPPER_COUNT] = { 110 ,  100 ,  115 , 170 , 190 , 110 , 120 , 190 , 165 , 95 , 130, 100 };
+const uint8_t ZERO_OFFSET[STEPPER_COUNT] = { 110 ,  100 ,  115 , 170 , 190 , 110 , 120 , 190 , 165 , 95 , 130,  80 };
 
 AccelStepper steppers[STEPPER_COUNT] = {
   AccelStepper(AccelStepper::HALF4WIRE,   4,  3,  2,  5),
