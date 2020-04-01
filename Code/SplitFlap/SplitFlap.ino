@@ -86,7 +86,7 @@ void gotoZero(uint8_t moduleNum) {
     zeroPos = (digitalRead(SENSOR_PINS[moduleNum]) == 0);
     if (zeroPos) {
       unsigned long zduration = millis()-zeroPosStartMillis;
-      Serial.print("  Zero Pos detected (");Serial.print(zduration, DEC);Serial.println(")");
+      Serial.print("  Zero Pos detected (");Serial.print(zduration, DEC);Serial.println("ms)");
       steppers[moduleNum].setCurrentPosition(0);
       steppers[moduleNum].runToNewPosition(ZERO_OFFSET[moduleNum]);
     }
