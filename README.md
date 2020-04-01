@@ -10,6 +10,11 @@ Modifications:
   - _next step will be an [Arduino Mega2560 with WiFi](https://de.aliexpress.com/item/33011577070.html) board_
 - use [A3144 hall sensors](https://www.ebay.de/itm/182592276084)
 
+<img src="Images/IMG-9150.gif"/>
+
+
 ### construction site pictures ^^ 
-<img src="Images/IMG_0935.jpeg" width=400 /><img src="Images/IMG_0936.jpeg" width=400 />
-<img src="Images/IMG_1023.jpeg" width=400 /><img src="Images/IMG_1027.jpeg" width=400 />
+<img src="Images/IMG_0935.jpeg" width=400 />
+<img src="Images/IMG_0936.jpeg" width=400 />
+<img src="Images/IMG_1027.jpeg" width=400 />
+<img src="Images/IMG_1023.jpeg" width=400 />
