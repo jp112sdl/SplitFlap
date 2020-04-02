@@ -1,27 +1,36 @@
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
+#include <ESP8266HTTPUpdateServer.h>
+#include <ESP8266mDNS.h>
 #include <SoftwareSerial.h>
+#include <ArduinoJson.h>
+#include <ArduinoOTA.h>
 #include "secrets.h"
 
 #define BUSY_PIN      D5
+#define NUM_MODULES   12
 
 ESP8266WebServer server(80);
+ESP8266HTTPUpdateServer httpUpdater;
 SoftwareSerial splitflapSerial(D7, D6);
 
 String lasttext = "";
 String serialInput = "";
 
+const char * host = "SPLITFLAP";
+bool blocked = false;
+
 struct {
-   String msg;
+  String msg;
 } SplitFlapCommand[255];
 
 uint8_t msgcnt = 0;
 uint8_t msgidx = 0;
 unsigned long stopMillis = 0;
 uint16_t waitMillisBetween  = 2000;
+bool OTAStart = false;
 
-const char MAIN_page[] PROGMEM = R"=====(
-<html>
+const char HEAD[] PROGMEM = R"=====(
   <head>
     <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
@@ -32,12 +41,14 @@ const char MAIN_page[] PROGMEM = R"=====(
         text-align: center;
         font-family:verdana;
         background-color: #303030;
+        color: white;
+        font-size:1.4rem; 
+        padding: 10px;
       } 
   
-      button{
+      input.lnkbtnred,input.lnkbtngn,input.lnkbtnback ,button{
         border:0;
         border-radius:0.3rem;
-        background-color: #83b817;
         color:#fff;
         line-height:2.4rem;
         font-size:1.2rem;
@@ -45,17 +56,54 @@ const char MAIN_page[] PROGMEM = R"=====(
         padding: 5px 10px;
         margin-top: 5px;
       } 
+
+      button {
+        background-color: #83b817;
+      }
+
+      input.lnkbtnback {
+        background-color: #1fa3ec;
+        padding: 5px 10px;
+        margin-bottom: 5px;
+        width:114px;
+      }
+
+      input.lnkbtnred {
+        background-color: #ff6666;
+      } 
       
       .listbtn {
         width:114px;
         padding: 5px 10px;
         margin-bottom: 5px;
       }
+
+      .savebtn {
+        width:114px;
+        padding: 5px 10px;
+        margin-bottom: 5px;
+        background-color: #ff6666;
+      }
+
+      input.lnkbtnred,input.lnkbtngn,.savebtn {
+        -webkit-appearance: button;
+        -moz-appearance: button;
+        appearance: button;
+      } 
       
       label {
         color: white;
         font-size:1.4rem; 
         padding: 10px;
+      }
+
+      table {
+         margin: 0 auto;
+      }
+      
+      td.name {
+       text-align: right;
+       font-size:1.4rem;
       }
 
       #headline {
@@ -91,16 +139,28 @@ const char MAIN_page[] PROGMEM = R"=====(
         font-size:1.4rem;
       }
       
-      input[type=number] {
+      .num {
         background-color: #606060;
         color: white;
-        width: 50px;
         font-size:1.4rem;
       }
+
+      .reset {
+        width: 50px;
+      }
+
+      .offset {
+        width: 80px;
+        text-align:left;
+      }
 
       input[type=submit] {
         margin-top: 5px;
         padding: 5px 10px;
+      }
+
+     form {
+        margin-bottom: 0em;
       }
 
       @keyframes flipping {
@@ -114,19 +174,42 @@ const char MAIN_page[] PROGMEM = R"=====(
       }
     </style>
   </head>
+)=====";
+
+const char CONFIG_page[] PROGMEM = R"=====(
+<html>
+  {head}
+  <body>
+    <div class="center">
+      <form action="/config" method="post">
+      <div><table>
+        {offset_lines}
+      </table></div>
+        <div><button  class='savebtn' type="submit">Save</button>
+      <input class='lnkbtnback' type='button' value='Back' onclick="window.location.href='/'" /></div> 
+      </form>
+    </div>
+  </body>
+</html>
+)=====";
+
+const char MAIN_page[] PROGMEM = R"=====(
+<html>
+  {head}
   <body>
     <h1 style="color:#ddd;" id="headline">
       SplitFlap
       <span class="flap-state flap-state__unkown" id="state"></span>
     </h1>
-    <div>
+
+    <div class="center">
       <form action="/" method="post">
-        <div><label for="reset_module">Modul</label><input id="reset_module" type="number" name="reset" value="0" min="0" max="12"><label>(0=All)</label></div>
+        <div><label for="reset_module">Modul</label><input class="num reset" id="reset_module" type="number" name="reset" value="0" min="0" max="{num_modules}"><label>(0=All)</label></div>
         <div> <button>Reset</button></div>
       </form>
       
       <form action="/" method="post" id="frm">
-        <div><input id="textfield" type="text" maxlength=12 onfocus="this.value=''" name="text" value="" placeholder="Single Word"></div>
+        <div><input id="textfield" type="text" maxlength={num_modules} onfocus="this.value=''" name="text" value="" placeholder="Single Word"></div>
         <div><button type="submit">Send</button></div>   
       </form>
       
@@ -135,18 +218,17 @@ const char MAIN_page[] PROGMEM = R"=====(
           <button class="listbtn" type="button" onclick="ClearBtn()">Clear</button>
           <button class="listbtn" type="button" onclick="GoBtn();">GO</button>
         </div>
-        <div><input id="textline1" type="text" maxlength=12 onfocus="this.value=''" name="text" value="{w1}" placeholder="{w1}"></div>
-        <div><input id="textline2" type="text" maxlength=12 onfocus="this.value=''" name="text" value="{w2}" placeholder="{w2}"></div>
-        <div><input id="textline3" type="text" maxlength=12 onfocus="this.value=''" name="text" value="{w3}" placeholder="{w3}"></div>
-        <div><input id="textline4" type="text" maxlength=12 onfocus="this.value=''" name="text" value="{w4}" placeholder="{w4}"></div>
-        <div><input id="textline5" type="text" maxlength=12 onfocus="this.value=''" name="text" value="{w5}" placeholder="{w5}"></div>
-        <div><input id="textline6" type="text" maxlength=12 onfocus="this.value=''" name="text" value="{w6}" placeholder="{w6}"></div>
-
+        <div><input id="textline1" type="text" maxlength={num_modules} onfocus="this.value=''" name="text" value="{w1}" placeholder="{w1}"></div>
+        <div><input id="textline2" type="text" maxlength={num_modules} onfocus="this.value=''" name="text" value="{w2}" placeholder="{w2}"></div>
+        <div><input id="textline3" type="text" maxlength={num_modules} onfocus="this.value=''" name="text" value="{w3}" placeholder="{w3}"></div>
+        <div><input id="textline4" type="text" maxlength={num_modules} onfocus="this.value=''" name="text" value="{w4}" placeholder="{w4}"></div>
+        <div><input id="textline5" type="text" maxlength={num_modules} onfocus="this.value=''" name="text" value="{w5}" placeholder="{w5}"></div>
+        <div><input id="textline6" type="text" maxlength={num_modules} onfocus="this.value=''" name="text" value="{w6}" placeholder="{w6}"></div>
       </form>
-
+      <div>
+        <input class='lnkbtnred' type='button' value='Konfiguration' onclick="window.location.href='/config'" />
+      </div>
     </div>
-    <div class="center">
-</div>
 
     <script>   
        function ClearBtn() {
@@ -245,6 +327,8 @@ void printWifiStatus() {
   IPAddress ip = WiFi.localIP();
   Serial.print("IP Address: ");
   Serial.println(ip);
+  Serial.print("MAC Address: ");
+  Serial.println(WiFi.macAddress());
   long rssi = WiFi.RSSI();
   Serial.print("signal strength (RSSI):");
   Serial.print(rssi);
@@ -288,13 +372,14 @@ void addTextToSplitFlapMessageBuffer(String text) {
   text.replace("ß", ")");
   text += "            ";
 
-  SplitFlapCommand[msgcnt].msg = text.substring(0,12);
+  SplitFlapCommand[msgcnt].msg = text.substring(0,NUM_MODULES);
   Serial.print("addToSplitFlapMessageBuffer #");Serial.print(msgcnt, DEC);Serial.print(" : '");Serial.print(text);;Serial.println("'");
   msgcnt++;
 }
 
 void handleRoot() {
   String s = FPSTR(MAIN_page); //Read HTML contents
+  s.replace("{head}", FPSTR(HEAD));
 
   if (server.hasArg("reset")) {
     int modnum = atoi(server.arg("reset").c_str());
@@ -329,59 +414,169 @@ void handleRoot() {
     addTextToSplitFlapMessageBuffer(text);
   }
 
-  //s.replace("{sw}", lasttext);
+  s.replace("{num_modules}", String(NUM_MODULES));
   server.send(200, "text/html", s); //Send web page
+}
+
+void handleConfig() {
+  blocked = true;
+
+  bool save = false;
+  for (uint8_t i = 0; i < NUM_MODULES; i++) {
+    if (server.hasArg("offset"+String(i))) {
+      save = true;
+      int val = atoi(server.arg("offset"+String(i)).c_str());
+      splitflapSerial.print("%o");
+      if (i < 10) splitflapSerial.print("0");
+      splitflapSerial.print(i, DEC);
+      splitflapSerial.print(val);
+      splitflapSerial.print("\n");
+      delay(10);
+      Serial.print("offset");Serial.print(i,DEC);Serial.print(":");Serial.println(val, DEC);
+    }
+  }
+
+  if (save) delay(700);
+  
+  splitflapSerial.print("%g\n");
+
+  unsigned long start = millis();
+  String json = "";
+  while (millis() - start < 1000) {
+    bool newChar = false;
+    while (splitflapSerial.available()) {
+      char in = splitflapSerial.read();
+      if (in == '\n') {
+         newChar = true;
+       } else {
+         json += in;
+       }
+    }
+
+    if (newChar) {
+      newChar = false;
+      Serial.println(json);
+      break;
+    }
+  }
+
+  if (json == "") {
+    Serial.println("Serial TIMEOUT");
+  }
+
+  StaticJsonDocument<256> doc;
+  DeserializationError error = deserializeJson(doc, json);
+   if (error) {
+    Serial.print(F("deserializeJson() failed: "));
+    Serial.println(error.c_str());
+  }
+
+  
+  
+  String s = FPSTR(CONFIG_page); //Read HTML contents
+  s.replace("{head}", FPSTR(HEAD));
+
+  String offset_lines = "";
+  for (uint8_t i = 0; i < NUM_MODULES; i++) {
+    uint16_t val = doc["ZERO_OFFSET"][i].as<uint16_t>();
+    offset_lines+="<tr><td class=\"name\">Offset "+String(i+1)+":</td><td><input class=\"num offset\" id=\"offset"+String(i)+"\" type=\"number\" name=\"offset"+String(i)+"\" value=\""+String(val)+"\" min=\"0\" max=\"4096\"></td></tr>";
+  }
+  s.replace("{offset_lines}", offset_lines);
+
+  server.send(200, "text/html", s); //Send web page
+  blocked = false;
+}
+
+void startOTAhandling() {
+  Serial.print(F("Starte OTA-Handler... "));
+  ArduinoOTA.onStart([]() {
+    Serial.println(F("Start updating"));
+    OTAStart = true;
+  });
+  ArduinoOTA.onEnd([]() {
+    Serial.print("\nEnd");
+    OTAStart = false;
+  });
+  ArduinoOTA.onProgress([](__attribute__ ((unused))unsigned int progress,__attribute__ ((unused)) unsigned int total) {
+    Serial.print(".");
+  });
+  ArduinoOTA.onError([](ota_error_t error) {
+    OTAStart = false;
+    Serial.print("Error "+String(error));
+    if (error == OTA_AUTH_ERROR) Serial.print("Auth Failed");
+    else if (error == OTA_BEGIN_ERROR) Serial.print("Begin Failed");
+    else if (error == OTA_CONNECT_ERROR) Serial.print("Connect Failed");
+    else if (error == OTA_RECEIVE_ERROR) Serial.print("Receive Failed");
+    else if (error == OTA_END_ERROR) Serial.print("End Failed");
+  });
+
+  ArduinoOTA.setHostname(host);
+  ArduinoOTA.begin();
+  Serial.println("done");
 }
 
 void setup() {
   Serial.begin(57600);
   pinMode(BUSY_PIN, INPUT);
   pinMode(LED_BUILTIN, OUTPUT);
-  splitflapSerial.begin(57600);
+  splitflapSerial.begin(19200);
   setup_wifi();
 
+  MDNS.begin(host);
+
   server.on("/", handleRoot);
+  server.on("/config", handleConfig);
   server.on("/getBusyState",[]() {server.send(200, "text/plain", String(getBusyState()));});
   server.onNotFound(handleRoot);
 
+  startOTAhandling();
+
+  httpUpdater.setup(&server);
+  
   server.begin();
+
 }
 
 void loop() {
-  server.handleClient();
-  digitalWrite(LED_BUILTIN, !getBusyState());
+  //auf OTA Anforderung reagieren
+  ArduinoOTA.handle();
 
-  bool newChar = false;
-  if (splitflapSerial.available()) {
-    char in = splitflapSerial.read();
-    if (in == '\n') {
-       newChar = true;
-     } else {
-       serialInput += in;
-     }
-  }
+  if (!OTAStart) {
+    server.handleClient();
+    digitalWrite(LED_BUILTIN, !getBusyState());
 
-  if (newChar) {
-    newChar = false;
-    Serial.print("IN splitflapSerial: ");Serial.println(serialInput);
-    serialInput = "";
-  }
+    bool newChar = false;
+    if (splitflapSerial.available() && !blocked) {
+      char in = splitflapSerial.read();
+      if (in == '\n') {
+         newChar = true;
+       } else {
+         serialInput += in;
+       }
+    }
 
-  if (getBusyState() == true) stopMillis = millis();
+    if (newChar) {
+      newChar = false;
+      Serial.print("IN splitflapSerial: ");Serial.println(serialInput);
+      serialInput = "";
+    }
 
-  if (millis() - stopMillis > waitMillisBetween) {
-    if (msgcnt > 0) {
-      Serial.print("Processing Message #");Serial.print(msgidx,DEC);Serial.print(" : '");Serial.print(SplitFlapCommand[msgidx].msg);Serial.println("'");
-      splitflapSerial.print(SplitFlapCommand[msgidx].msg);
-      splitflapSerial.print('\n');
+    if (getBusyState() == true) stopMillis = millis();
 
-      msgidx++;
+    if (millis() - stopMillis > waitMillisBetween) {
+      if (msgcnt > 0) {
+        Serial.print("Processing Message #");Serial.print(msgidx,DEC);Serial.print(" : '");Serial.print(SplitFlapCommand[msgidx].msg);Serial.println("'");
+        splitflapSerial.print(SplitFlapCommand[msgidx].msg);
+        splitflapSerial.print('\n');
 
-      stopMillis = millis();
+        msgidx++;
 
-      if (msgidx >= msgcnt) {
-        msgcnt = 0;
-        msgidx = 0;
+        stopMillis = millis();
+
+        if (msgidx >= msgcnt) {
+          msgcnt = 0;
+          msgidx = 0;
+        }
       }
     }
   }
