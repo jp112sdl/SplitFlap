@@ -198,10 +198,10 @@ void loop() {
         break;
 
       case 'o': {
-        int modnum = atoi(serialInput.substring(2,2).c_str());
-        uint16_t val = constrain(atoi(serialInput.substring(2).c_str()), 0, 4096);
+        int modnum = atoi(serialInput.substring(2,4).c_str());
+        uint16_t val = constrain(atoi(serialInput.substring(4).c_str()), 0, 4096);
         setZeroPosOffset(modnum, val);
-        gotoZero(modnum);
+        //gotoZero(modnum);
       }
         break;
 
