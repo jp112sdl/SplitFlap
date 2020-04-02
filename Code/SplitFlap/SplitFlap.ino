@@ -162,7 +162,7 @@ bool processFlapRun() {
 
 void setup() {
   Serial.begin(57600);
-  Serial2.begin(57600);
+  Serial2.begin(19200);
   initHW();
 }
 
