@@ -22,7 +22,8 @@ bool blocked = false;
 
 struct {
   String msg;
-} SplitFlapCommand[255];
+  int wait;
+} SplitFlapCommand[64];
 
 uint8_t msgcnt = 0;
 uint8_t msgidx = 0;
@@ -135,7 +136,7 @@ const char HEAD[] PROGMEM = R"=====(
         max-width: 90vw;
         background-color: #606060;
         color: white;
-        padding: 5px 10px;
+        padding: 5px 5px;
         font-size:1.4rem;
       }
       
@@ -143,10 +144,15 @@ const char HEAD[] PROGMEM = R"=====(
         background-color: #606060;
         color: white;
         font-size:1.4rem;
+        padding: 5px 5px;
       }
 
+      .waittime {
+        width: 55px;
+      }
+      
       .reset {
-        width: 50px;
+        width: 65px;
       }
 
       .offset {
@@ -218,12 +224,12 @@ const char MAIN_page[] PROGMEM = R"=====(
           <button class="listbtn" type="button" onclick="ClearBtn()">Clear</button>
           <button class="listbtn" type="button" onclick="GoBtn();">GO</button>
         </div>
-        <div><input id="textline1" type="text" maxlength={num_modules} onfocus="this.value=''" name="text" value="{w1}" placeholder="{w1}"></div>
-        <div><input id="textline2" type="text" maxlength={num_modules} onfocus="this.value=''" name="text" value="{w2}" placeholder="{w2}"></div>
-        <div><input id="textline3" type="text" maxlength={num_modules} onfocus="this.value=''" name="text" value="{w3}" placeholder="{w3}"></div>
-        <div><input id="textline4" type="text" maxlength={num_modules} onfocus="this.value=''" name="text" value="{w4}" placeholder="{w4}"></div>
-        <div><input id="textline5" type="text" maxlength={num_modules} onfocus="this.value=''" name="text" value="{w5}" placeholder="{w5}"></div>
-        <div><input id="textline6" type="text" maxlength={num_modules} onfocus="this.value=''" name="text" value="{w6}" placeholder="{w6}"></div>
+        <div><input id="textline1" type="text" maxlength={num_modules} onfocus="this.value=''" name="text" value="{t1}" placeholder="{t1}">&nbsp;<input class="num waittime" id="waitline1" type="number" name="waitline" value="{w1}" min="1" max="60">s</div>
+        <div><input id="textline2" type="text" maxlength={num_modules} onfocus="this.value=''" name="text" value="{t2}" placeholder="{t2}">&nbsp;<input class="num waittime" id="waitline2" type="number" name="waitline" value="{w2}" min="1" max="60">s</div>
+        <div><input id="textline3" type="text" maxlength={num_modules} onfocus="this.value=''" name="text" value="{t3}" placeholder="{t3}">&nbsp;<input class="num waittime" id="waitline3" type="number" name="waitline" value="{w3}" min="1" max="60">s</div>
+        <div><input id="textline4" type="text" maxlength={num_modules} onfocus="this.value=''" name="text" value="{t4}" placeholder="{t4}">&nbsp;<input class="num waittime" id="waitline4" type="number" name="waitline" value="{w4}" min="1" max="60">s</div>
+        <div><input id="textline5" type="text" maxlength={num_modules} onfocus="this.value=''" name="text" value="{t5}" placeholder="{t5}">&nbsp;<input class="num waittime" id="waitline5" type="number" name="waitline" value="{w5}" min="1" max="60">s</div>
+        <div><input id="textline6" type="text" maxlength={num_modules} onfocus="this.value=''" name="text" value="{t6}" placeholder="{t6}">&nbsp;<input class="num waittime" id="waitline6" type="number" name="waitline" value="{w6}" min="1" max="60">s</div>
       </form>
       <div>
         <input class='lnkbtnred' type='button' value='Konfiguration' onclick="window.location.href='/config'" />
@@ -233,8 +239,10 @@ const char MAIN_page[] PROGMEM = R"=====(
     <script>   
        function ClearBtn() {
          for (var i = 1; i < 7; i++) { 
-           var l  = document.getElementById("textline"+i);
-           l.value="";
+           var t  = document.getElementById("textline"+i);
+           var w =  document.getElementById("waitline"+i);
+           t.value="";
+           w.value=2;
           }
        }
        
@@ -242,9 +250,10 @@ const char MAIN_page[] PROGMEM = R"=====(
          var sftext='';
 
          for (var i = 1; i < 7; i++) { 
-           var l  = document.getElementById("textline"+i).value;
-           if (l.length > 0) {
-             sftext+=l+';';
+           var t  = document.getElementById("textline"+i).value;
+           if (t.length > 0) {
+             var w = document.getElementById("waitline"+i).value;
+             sftext+=t+'\''+w+';';
            }
          } 
          
@@ -341,6 +350,8 @@ void setup_wifi() {
   Serial.print("Connecting to ");
   Serial.println(ssid);
 
+  WiFi.mode(WIFI_STA);
+
   WiFi.begin(ssid, password);
 
   while (WiFi.status() != WL_CONNECTED) {
@@ -357,7 +368,7 @@ bool getBusyState() {
   return digitalRead(BUSY_PIN);
 }
 
-void addTextToSplitFlapMessageBuffer(String text) {
+void addTextToSplitFlapMessageBuffer(String text, int wait) {
   text.toUpperCase();
   lasttext = text;
   //Serial.print("Text:");
@@ -373,7 +384,8 @@ void addTextToSplitFlapMessageBuffer(String text) {
   text += "            ";
 
   SplitFlapCommand[msgcnt].msg = text.substring(0,NUM_MODULES);
-  Serial.print("addToSplitFlapMessageBuffer #");Serial.print(msgcnt, DEC);Serial.print(" : '");Serial.print(text);;Serial.println("'");
+  SplitFlapCommand[msgcnt].wait = wait;
+  Serial.print("addToSplitFlapMessageBuffer #");Serial.print(msgcnt, DEC);Serial.print(" : '");Serial.print(text);;Serial.print("' Wait: ");Serial.println(wait,DEC);
   msgcnt++;
 }
 
@@ -400,18 +412,27 @@ void handleRoot() {
     char *p = buf;
     char *str;
     while ((str = strtok_r(p, ";", &p)) != NULL) { // delimiter is the semicolon
-      addTextToSplitFlapMessageBuffer(str);
-      s.replace("{w"+String(++tlcnt)+"}", str);
+      String sStr = String(str);
+      
+      int idxDelim = sStr.indexOf("'");
+      String txt = sStr.substring(0,idxDelim);
+
+      int wait = atoi(sStr.substring(idxDelim+1,sStr.length()).c_str());
+
+      addTextToSplitFlapMessageBuffer(txt, wait);
+      s.replace("{t"+String(++tlcnt)+"}", txt);
+      s.replace("{w"+String(tlcnt)+"}", String(wait));
     }
   }
 
   for (uint8_t i = tlcnt; i < 7; i++) {
-    s.replace("{w"+String(i)+"}", "");
+    s.replace("{t"+String(i)+"}", "");
+    s.replace("{w"+String(i)+"}", "2");
   }
 
   if (server.hasArg("text")) {
     String text = server.arg("text");
-    addTextToSplitFlapMessageBuffer(text);
+    addTextToSplitFlapMessageBuffer(text, 0);
   }
 
   s.replace("{num_modules}", String(NUM_MODULES));
@@ -565,13 +586,15 @@ void loop() {
 
     if (millis() - stopMillis > waitMillisBetween) {
       if (msgcnt > 0) {
+        Serial.print("Wait time was: ");Serial.println(waitMillisBetween, DEC);
         Serial.print("Processing Message #");Serial.print(msgidx,DEC);Serial.print(" : '");Serial.print(SplitFlapCommand[msgidx].msg);Serial.println("'");
         splitflapSerial.print(SplitFlapCommand[msgidx].msg);
         splitflapSerial.print('\n');
 
-        msgidx++;
-
+        waitMillisBetween = SplitFlapCommand[msgidx].wait * 1000;
         stopMillis = millis();
+
+        msgidx++;
 
         if (msgidx >= msgcnt) {
           msgcnt = 0;
