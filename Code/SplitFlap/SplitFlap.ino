@@ -135,29 +135,29 @@ void gotoLetter(char printletter, uint8_t moduleNum) {
 }
 
 bool processFlapRun() {
-    bool isBusy = false;
-    for (uint8_t j = 0; j < STEPPER_COUNT; j++) {
-      if (steppers[j].distanceToGo() != 0 && !running[j]) {
-        //Serial.print("Enable  Steppers ("); Serial.print(j, DEC); Serial.println(")");
-        steppers[j].enableOutputs();
-        running[j] = true;
-      }
-
-      steppers[j].run();
-
-      if (steppers[j].distanceToGo() == 0 && running[j]) {
-        //Serial.print("Disable Steppers ("); Serial.print(j, DEC); Serial.println(")");
-        if (steppers[j].currentPosition() > STEPS_PER_ROUND) {
-          steppers[j].setCurrentPosition(steppers[j].currentPosition() - STEPS_PER_ROUND);
-        }
-        steppers[j].disableOutputs();
-        running[j] = false;
-      }
-
-      if (running[j]) lastmillis = millis();
-      if (running[j]) isBusy = true;
+  bool isBusy = false;
+  for (uint8_t j = 0; j < STEPPER_COUNT; j++) {
+    if (steppers[j].distanceToGo() != 0 && !running[j]) {
+      //Serial.print("Enable  Steppers ("); Serial.print(j, DEC); Serial.println(")");
+      steppers[j].enableOutputs();
+      running[j] = true;
     }
-    return isBusy;
+
+    steppers[j].run();
+
+    if (steppers[j].distanceToGo() == 0 && running[j]) {
+      //Serial.print("Disable Steppers ("); Serial.print(j, DEC); Serial.println(")");
+      if (steppers[j].currentPosition() > STEPS_PER_ROUND) {
+        steppers[j].setCurrentPosition(steppers[j].currentPosition() - STEPS_PER_ROUND);
+      }
+      steppers[j].disableOutputs();
+      running[j] = false;
+    }
+
+    if (running[j]) lastmillis = millis();
+    if (running[j]) isBusy = true;
+  }
+  return isBusy;
 }
 
 void setup() {
