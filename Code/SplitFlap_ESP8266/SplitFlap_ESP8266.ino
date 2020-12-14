@@ -211,11 +211,12 @@ const char MAIN_page[] PROGMEM = R"=====(
     <div class="center">
       <form action="/" method="post">
         <div><label for="reset_module">Modul</label><input class="num reset" id="reset_module" type="number" name="reset" value="0" min="0" max="{num_modules}"><label>(0=All)</label></div>
-        <div> <button>Reset</button></div>
+        <div><button>Reset</button></div>
       </form>
       
       <form action="/" method="post" id="frm">
         <div><input id="textfield" type="text" maxlength={num_modules} onfocus="this.value=''" name="text" value="" placeholder="Single Word"></div>
+        <div><input type="checkbox" id="center" name="center" checked><label for="center">zentriert</label></div>
         <div><button type="submit">Send</button></div>   
       </form>
       
@@ -315,7 +316,7 @@ const char MAIN_page[] PROGMEM = R"=====(
           var xhr = new XMLHttpRequest();
           xhr.open("POST", url);
           xhr.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
-          xhr.send('text=' + encodeURIComponent(frm.elements.text.value));
+          xhr.send('center='+frm.elements.center.checked+'&text=' + encodeURIComponent(frm.elements.text.value));
         });
 
         function stateRefresher() {
@@ -432,6 +433,14 @@ void handleRoot() {
 
   if (server.hasArg("text")) {
     String text = server.arg("text");
+
+    if (server.hasArg("center"))
+      if (server.arg("center") == "true") {
+        uint8_t spc = (NUM_MODULES - text.length()) / 2;
+        for (uint8_t i = 0; i < spc; i++)
+          text = " " + text;
+      }
+
     addTextToSplitFlapMessageBuffer(text, 0);
   }
 
